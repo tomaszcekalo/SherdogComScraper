@@ -2,16 +2,17 @@
 using ScrapySharp.Extensions;
 using ScrapySharp.Network;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace SherdogComScraper
 {
     public interface ISherdogScraper
     {
-        void Scrape();
-        void ScrapeEvent(string url);
-        void ParsePerformer(HtmlNode performer);
-        void ParseFighter(HtmlNode fighter);
+        List<SherdogEvent> Scrape();
+        SherdogEvent ScrapeEvent(string url);
+        Performer ParsePerformer(HtmlNode performer);
+        Performer ParseMainEventPerformer(HtmlNode fighter);
     }
 
     public class SherdogScraper : ISherdogScraper
@@ -28,22 +29,20 @@ namespace SherdogComScraper
             _browser = browser;
         }
 
-        public void Scrape()
+        public List<SherdogEvent> Scrape()
         {
             WebPage homePage = _browser.NavigateToPage(
                 new Uri(
                 Consts.SherdogComUrlBase +//right now I'm testing only on UFC
                 "organizations/Ultimate-Fighting-Championship-UFC-2"));
-            var events = homePage.Html.CssSelect(".event a");
-            foreach (var item in events)
-            {
-                //go by href
-                var linkHref = item.GetAttributeValue("href", string.Empty);
-                ScrapeEvent(linkHref);
-            }
+            var events = homePage.Html.CssSelect(".event a")
+                .Select(x => ScrapeEvent(x.Attributes["href"].Value))
+                .ToList();
+
+            return events;
         }
 
-        public void ScrapeEvent(string url)
+        public SherdogEvent ScrapeEvent(string url)
         {
             WebPage eventPage = _browser.NavigateToPage(
                 new Uri(
@@ -56,68 +55,140 @@ namespace SherdogComScraper
             var mainEvent = eventPage.Html
                 .CssSelect(".fight")
                 .First();
-            var fighterLeftSide = mainEvent
-                .CssSelect(".left_side")
-                .First();
-            var fighterRightSide = mainEvent
-                .CssSelect(".right_side")
-                .First();
-            ParseFighter(fighterLeftSide);
-            ParseFighter(fighterRightSide);
+            var mainEventFight = ParseMainEvent(mainEvent);
+            var heads = eventPage.Html.CssSelect(".event_match .table_head");
+            var parseScore = heads.CssSelect(".col_three").Any()
+                && heads.CssSelect(".col_four").Any()
+                && heads.CssSelect(".col_five").Any();
+
             var fights = eventPage
                 .Html
-                .CssSelect(".event_match tr");
-            foreach (var fight in fights)
-            {
-                var performers = fight.CssSelect("[itemprop='performer']");
-                foreach (var performer in performers)
-                {
-                    ParsePerformer(performer);
-                }
-            }
-            ;
+                .CssSelect(".event_match tr")
+                .Select(x => ParseFight(x, parseScore))
+                .ToList();
+
+            var result = new SherdogEvent();
+            return result;
         }
+
+        private EventFight ParseMainEvent(HtmlNode mainEvent)
+        {
+            var resume = mainEvent
+                .ParentNode
+                .CssSelect(".footer")
+                .CssSelect(".resume")
+                .FirstOrDefault()
+                ?.CssSelect("td")
+                .ToDictionary(x => x.FirstChild.InnerText, x => x.LastChild.InnerText);
+
+            var result = new EventFight()
+            {
+                Performers = mainEvent.CssSelect(".fighter")
+                    .Select(x => ParseMainEventPerformer(x))
+                    .ToList(),
+                Method = resume?["Method"],
+                Round = resume?["Round"],
+                Time = resume?["Time"],
+                Referee = resume?["Referee"]
+            };
+            return result;
+        }
+
+        private EventFight ParseFight(HtmlNode fight, bool parseScrore)
+        {
+            List<HtmlNode> cells = null;
+            if (parseScrore)
+            {
+                cells = fight.CssSelect("td")
+                    .ToList();
+                cells.Reverse();
+            }
+
+            var result = new EventFight()
+            {
+                Name = fight.CssSelect("[itemprop='name']")
+                    .FirstOrDefault()
+                    ?.Attributes["content"]
+                    .Value,
+                Image = fight.CssSelect("[itemprop='image']")
+                    .FirstOrDefault()
+                    ?.Attributes["content"]
+                    .Value,
+                Performers = fight.CssSelect("[itemprop='performer']")
+                    .Select(x => ParsePerformer(x))
+                    .ToList(),
+                Time = cells?[0].InnerText,
+                Round = cells?[1].InnerText,
+                Method = cells?[2].FirstChild.InnerText,
+                Referee = cells?[2].LastChild.InnerText
+            };
+            return result;
+        }
+
         //https://www.sherdog.com/organizations/Ultimate-Fighting-Championship-UFC-2
 
-        public void ParsePerformer(HtmlNode performer)
+        public Performer ParsePerformer(HtmlNode performer)
         {
             var image = performer.CssSelect("img")
-                .First();
-            var src = image
-            .Attributes["src"]
-            .Value;
-            var title = image
-                .Attributes["title"]
-                .Value;
+                .FirstOrDefault();
             var url = performer
                 .CssSelect("a")
-                .First();
-            var href = url
-                .Attributes["href"]
-                .Value;
-            var name = url
-                .FirstChild
-                .InnerHtml;
-            var record = performer
-                .CssSelect(".record em")
-                .First()
-                .InnerHtml;
+                .FirstOrDefault();
+
+            var result = new Performer()
+            {
+                Name = url
+                    ?.FirstChild
+                    .InnerHtml,
+                Href = url
+                    ?.Attributes["href"]
+                    .Value,
+                ImageSrc = image?
+                    .Attributes["src"]
+                    .Value,
+                Title = image?
+                    .Attributes["title"]
+                    .Value,
+                Record = performer
+                    .CssSelect(".record em")
+                    .FirstOrDefault()
+                    ?.InnerHtml,
+                FinalResult = performer
+                    .CssSelect(".final_result")
+                    .FirstOrDefault()
+                    ?.InnerText
+            };
+            return result;
         }
 
-        public void ParseFighter(HtmlNode fighter)
+        public Performer ParseMainEventPerformer(HtmlNode performer)
         {
-            var record = fighter.CssSelect(".record")
-                .First()
-                .FirstChild
-                .InnerHtml;
-            var image = fighter.CssSelect("img")
-                .First()
-                .Attributes["src"]
-                .Value;
-            var link = fighter.CssSelect("h3 a")
-                .First();
-            var href = link.Attributes["href"].Value;
-            var name = link.FirstChild.InnerHtml;
+            var link = performer.CssSelect("h3 a")
+                .FirstOrDefault();
+            var image = performer.CssSelect("img")
+                    .FirstOrDefault();
+
+            var result = new Performer()
+            {
+                Record = performer.CssSelect(".record")
+                    .FirstOrDefault()
+                    ?.FirstChild
+                    .InnerHtml,
+                ImageSrc = image
+                    ?.Attributes["src"]
+                    .Value,
+                Title = image
+                    ?.Attributes["title"]
+                    .Value,
+                Href = link?.Attributes["href"].Value,
+                Name = link?.FirstChild.InnerHtml,
+                FinalResult = performer
+                    .CssSelect(".final_result")
+                    .FirstOrDefault()
+                    ?.InnerText
+            };
+
+            return result;
         }
     }
 }
