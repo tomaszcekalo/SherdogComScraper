@@ -7,6 +7,6 @@
         public string ImageSrc { get; set; }
         public string Title { get; set; }
         public string Record { get; set; }
-        public string FinalResult { get; internal set; }
+        public string FinalResult { get; set; }
     }
 }

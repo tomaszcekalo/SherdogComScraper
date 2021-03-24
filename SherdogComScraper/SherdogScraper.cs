@@ -47,11 +47,15 @@ namespace SherdogComScraper
             WebPage eventPage = _browser.NavigateToPage(
                 new Uri(
                 Consts.SherdogComUrlBase + url));
-            var eventName = eventPage.Html
-                .CssSelect(".section_title h1 span")
-                .First();
-            var a = eventName.ChildNodes[0].InnerHtml;
-            var b = eventName.ChildNodes[2].InnerHtml;
+
+            var sectionTitle = eventPage.Html
+                .CssSelect(".section_title");
+            var eventName = sectionTitle
+                .CssSelect("h1 span")
+                .FirstOrDefault();
+            var organization = sectionTitle
+                .CssSelect("a")
+                .FirstOrDefault();
             var mainEvent = eventPage.Html
                 .CssSelect(".fight")
                 .First();
@@ -61,13 +65,38 @@ namespace SherdogComScraper
                 && heads.CssSelect(".col_four").Any()
                 && heads.CssSelect(".col_five").Any();
 
+            var info = eventPage.Html
+                .CssSelect(".authors_info");
+
             var fights = eventPage
                 .Html
                 .CssSelect(".event_match tr")
                 .Select(x => ParseFight(x, parseScore))
                 .ToList();
 
-            var result = new SherdogEvent();
+            fights.Insert(0, mainEventFight);
+
+            var result = new SherdogEvent()
+            {
+                Headline = eventName?.ChildNodes[0].InnerHtml,
+                Subhead = eventName?.ChildNodes[2].InnerHtml,
+                Fights = fights,
+                OrganizationHref = organization
+                    ?.Attributes["href"]
+                    .Value,
+                OrganizationName = organization
+                    ?.CssSelect("span")
+                    .FirstOrDefault()
+                    ?.InnerText,
+                StartDate = info
+                    .CssSelect(".date")
+                    .FirstOrDefault()
+                    ?.InnerText,
+                Location = info
+                    .CssSelect(".author")
+                    .FirstOrDefault()
+                    ?.InnerText
+            };
             return result;
         }
 
