@@ -2,6 +2,12 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Authors>Tomasz Cekało</Authors>
+    <Company>Tomasz Cekało</Company>
+    <PackageProjectUrl>https://github.com/tomaszcekalo/SherdogComScraper</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/tomaszcekalo/SherdogComScraper</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
