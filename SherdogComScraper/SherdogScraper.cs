@@ -13,11 +13,13 @@ namespace SherdogComScraper
         SherdogEvent ScrapeEvent(string url);
         Performer ParsePerformer(HtmlNode performer);
         Performer ParseMainEventPerformer(HtmlNode fighter);
+        Fighter ParseFighter(HtmlNode node);
     }
 
     public class SherdogScraper : ISherdogScraper
     {
         private readonly ScrapingBrowser _browser;
+        private char[] _percent = new char[] { '%' };
 
         public SherdogScraper()
         {
@@ -154,8 +156,6 @@ namespace SherdogComScraper
             return result;
         }
 
-        //https://www.sherdog.com/organizations/Ultimate-Fighting-Championship-UFC-2
-
         public Performer ParsePerformer(HtmlNode performer)
         {
             var image = performer.CssSelect("img")
@@ -216,6 +216,103 @@ namespace SherdogComScraper
                     .FirstOrDefault()
                     ?.InnerText
             };
+
+            return result;
+        }
+
+        public Fighter ScrapeFigher(string url)
+        {
+            WebPage eventPage = _browser.NavigateToPage(
+                new Uri(url));
+            return ParseFighter(eventPage.Html);
+        }
+
+        public Fighter ParseFighter(HtmlNode node)
+        {
+            var result = new Fighter
+            {
+                ImageSrc = node.CssSelect(".bio_fighter img.profile_image")
+                    .FirstOrDefault()
+                    ?.Attributes["src"]
+                    .Value,
+                BirthDate = node.CssSelect(".birthday [itemprop='birthDate']")
+                    .FirstOrDefault()
+                    ?.InnerText,
+                Age = node.CssSelect(".birthday")
+                    .FirstOrDefault()
+                    ?.LastChild
+                    .InnerText
+                    .Trim(),
+                Birthplace = node.CssSelect(".birthplace")
+                    .Select(ParseBirthplace)
+                    .FirstOrDefault(),
+                Height = node.CssSelect(".height [itemprop='height']")
+                    .FirstOrDefault()
+                    ?.InnerText,
+                HeightMetric = node.CssSelect(".height")
+                    .FirstOrDefault()
+                    ?.LastChild
+                    .InnerText
+                    .Trim(),
+                Weight = node.CssSelect(".weight [itemprop='weight']")
+                    .FirstOrDefault()
+                    ?.InnerText,
+                WeightMetric = node.CssSelect(".weight")
+                    .FirstOrDefault()
+                    ?.LastChild
+                    .InnerText
+                    .Trim(),
+                Association = node.CssSelect(".association span")
+                    .FirstOrDefault()
+                    ?.InnerText,
+                WeightClass = node.CssSelect(".wclass .title")
+                    .FirstOrDefault()
+                    ?.InnerText,
+                Losses = node.CssSelect(".loser")
+                    .Select(ParseScoreDetails)
+                    .FirstOrDefault(),
+                Wins = node.CssSelect(".bio_graph")
+                    .Select(ParseScoreDetails)
+                    .FirstOrDefault(),
+            };
+            return result;
+        }
+
+        public Birthplace ParseBirthplace(HtmlNode node)
+        {
+            var result = new Birthplace
+            {
+                Flag = node.CssSelect("img.big_flag")
+                    .FirstOrDefault()
+                    ?.Attributes["src"]
+                    .Value,
+                Locality = node.CssSelect(".locality")
+                    .FirstOrDefault()
+                    ?.InnerText,
+                Nationality = node.CssSelect("[itemprop='nationality']")
+                    .FirstOrDefault()
+                    ?.InnerText
+            };
+            return result;
+        }
+
+        public ScoreDetails ParseScoreDetails(HtmlNode node)
+        {
+            var result = new ScoreDetails();
+            result.Total = int.Parse(
+                node.CssSelect(".counter")
+                    .FirstOrDefault()
+                    ?.InnerText);
+            result.Values = node.CssSelect(".graph_tag")
+                .Select(x =>
+                    (
+                        x.InnerText,
+                        int.Parse(
+                            x.CssSelect("em")
+                                .FirstOrDefault()
+                                ?.InnerText
+                                .TrimEnd(_percent))
+                    )).ToList();
 
             return result;
         }

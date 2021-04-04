@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.31019.35
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SherdogComScraper", "SherdogComScraper\SherdogComScraper.csproj", "{8A0B14BE-0DC0-41B2-BB9C-DEBAB7C74D63}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SherdogComScraper.ConsoleExample", "SherdogComScraper.ConsoleExample\SherdogComScraper.ConsoleExample.csproj", "{3C73FC35-D05B-427E-A58B-1BD44F2E9DDA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SherdogComScraper.ConsoleExample", "SherdogComScraper.ConsoleExample\SherdogComScraper.ConsoleExample.csproj", "{3C73FC35-D05B-427E-A58B-1BD44F2E9DDA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
