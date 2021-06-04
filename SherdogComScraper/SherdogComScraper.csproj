@@ -8,6 +8,9 @@
     <Company>Tomasz Cekało</Company>
     <PackageProjectUrl>https://github.com/tomaszcekalo/SherdogComScraper</PackageProjectUrl>
     <RepositoryUrl>https://github.com/tomaszcekalo/SherdogComScraper</RepositoryUrl>
+    <AssemblyVersion>1.0.0.1</AssemblyVersion>
+    <FileVersion>1.0.0.1</FileVersion>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
