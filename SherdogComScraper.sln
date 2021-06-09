@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SherdogComScraper", "Sherdo
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SherdogComScraper.ConsoleExample", "SherdogComScraper.ConsoleExample\SherdogComScraper.ConsoleExample.csproj", "{3C73FC35-D05B-427E-A58B-1BD44F2E9DDA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SherdogComScraper.Tests", "SherdogComScraper.Tests\SherdogComScraper.Tests.csproj", "{C08BF98E-5D37-4201-BEC7-A7DC48CF700F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{3C73FC35-D05B-427E-A58B-1BD44F2E9DDA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3C73FC35-D05B-427E-A58B-1BD44F2E9DDA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3C73FC35-D05B-427E-A58B-1BD44F2E9DDA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C08BF98E-5D37-4201-BEC7-A7DC48CF700F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C08BF98E-5D37-4201-BEC7-A7DC48CF700F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C08BF98E-5D37-4201-BEC7-A7DC48CF700F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C08BF98E-5D37-4201-BEC7-A7DC48CF700F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
