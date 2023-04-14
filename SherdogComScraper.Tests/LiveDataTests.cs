@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Linq;
 
 namespace SherdogComScraper.Tests
 {
@@ -8,14 +9,29 @@ namespace SherdogComScraper.Tests
         [TestMethod]
         public void TestScrape()
         {
-            new SherdogScraper()
+            var events = new SherdogScraper()
                 .Scrape();
+            Assert.IsFalse(events.Any(x => x.Location is null));
+            Assert.IsFalse(events.Any(x => x.OrganizationName is null));
+            Assert.IsFalse(events.Any(x => x.StartDate is null));
         }
+
         [TestMethod]
         public void TestScrapeFighter()
         {
-            new SherdogScraper()
+            var gamrot = new SherdogScraper()
                 .ScrapeFigher("https://www.sherdog.com/fighter/Mateusz-Gamrot-90605");
+
+            Assert.IsNotNull(gamrot);
+            Assert.IsNotNull(gamrot.Losses);
+            Assert.IsNotNull(gamrot.Wins);
+            Assert.IsNotNull(gamrot.Height);
+            Assert.IsNotNull(gamrot.Association);
+            Assert.IsNotNull(gamrot.BirthDate);
+            Assert.IsNotNull(gamrot.Birthplace);
+            Assert.IsNotNull(gamrot.ImageSrc);
+            Assert.IsNotNull(gamrot.Weight);
+            Assert.IsNotNull(gamrot.WeightClass);
         }
     }
 }

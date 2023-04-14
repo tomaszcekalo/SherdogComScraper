@@ -10,9 +10,13 @@ namespace SherdogComScraper
     public interface ISherdogScraper
     {
         List<SherdogEvent> Scrape();
+
         SherdogEvent ScrapeEvent(string url);
+
         Performer ParsePerformer(HtmlNode performer);
+
         Performer ParseMainEventPerformer(HtmlNode fighter);
+
         Fighter ParseFighter(HtmlNode node);
     }
 
@@ -50,25 +54,22 @@ namespace SherdogComScraper
                 new Uri(
                 Consts.SherdogComUrlBase + url));
 
-            var sectionTitle = eventPage.Html
-                .CssSelect(".section_title");
+            var sectionTitle = eventPage.Html;
             var eventName = sectionTitle
                 .CssSelect("h1 span")
                 .FirstOrDefault();
             var organization = sectionTitle
-                .CssSelect("a")
+                .CssSelect(".organization")
                 .FirstOrDefault();
             var mainEvent = eventPage.Html
-                .CssSelect(".fight")
-                .First();
+                .CssSelect(".fight_card")
+                .FirstOrDefault();
             var mainEventFight = ParseMainEvent(mainEvent);
             var heads = eventPage.Html.CssSelect(".event_match .table_head");
             var parseScore = heads.CssSelect(".col_three").Any()
                 && heads.CssSelect(".col_four").Any()
                 && heads.CssSelect(".col_five").Any();
 
-            var info = eventPage.Html
-                .CssSelect(".authors_info");
 
             var fights = eventPage
                 .Html
@@ -78,33 +79,34 @@ namespace SherdogComScraper
 
             fights.Insert(0, mainEventFight);
 
-            var result = new SherdogEvent()
-            {
-                Headline = eventName?.ChildNodes[0].InnerHtml,
-                Subhead = eventName?.ChildNodes[2].InnerHtml,
-                Fights = fights,
-                OrganizationHref = organization
-                    ?.Attributes["href"]
-                    .Value,
-                OrganizationName = organization
-                    ?.CssSelect("span")
-                    .FirstOrDefault()
-                    ?.InnerText,
-                StartDate = info
-                    .CssSelect(".date")
-                    .FirstOrDefault()
-                    ?.InnerText,
-                Location = info
-                    .CssSelect(".author")
-                    .FirstOrDefault()
-                    ?.InnerText
-            };
+            var result = new SherdogEvent();
+            result.Headline = eventName?.ChildNodes.FirstOrDefault()?.InnerHtml;
+            result.Fights = fights;
+            result.OrganizationHref = organization
+                ?.CssSelect("a")
+                .FirstOrDefault()
+                ?.Attributes["href"]
+                .Value;
+            result.OrganizationName = organization
+                ?.CssSelect("[itemprop='name']")
+                .FirstOrDefault()
+                ?.InnerText;
+            result.StartDate = eventPage.Html
+                .CssSelect("[itemprop='startDate']")
+                .FirstOrDefault()
+                ?.Attributes["content"]
+                ?.Value;
+            result.Location = eventPage.Html
+                .CssSelect("[itemprop='location']")
+                .FirstOrDefault()
+                ?.InnerText;
+
             return result;
         }
 
         private EventFight ParseMainEvent(HtmlNode mainEvent)
         {
-            var resume = mainEvent
+            var resume = mainEvent?
                 .ParentNode
                 .CssSelect(".footer")
                 .CssSelect(".resume")
@@ -114,7 +116,7 @@ namespace SherdogComScraper
 
             var result = new EventFight()
             {
-                Performers = mainEvent.CssSelect(".fighter")
+                Performers = mainEvent?.CssSelect(".fighter")
                     .Select(x => ParseMainEventPerformer(x))
                     .ToList(),
                 Method = resume?["Method"],
@@ -229,52 +231,37 @@ namespace SherdogComScraper
 
         public Fighter ParseFighter(HtmlNode node)
         {
-            var result = new Fighter
-            {
-                ImageSrc = node.CssSelect(".bio_fighter img.profile_image")
-                    .FirstOrDefault()
-                    ?.Attributes["src"]
-                    .Value,
-                BirthDate = node.CssSelect(".birthday [itemprop='birthDate']")
-                    .FirstOrDefault()
-                    ?.InnerText,
-                Age = node.CssSelect(".birthday")
-                    .FirstOrDefault()
-                    ?.LastChild
-                    .InnerText
-                    .Trim(),
-                Birthplace = node.CssSelect(".birthplace")
-                    .Select(ParseBirthplace)
-                    .FirstOrDefault(),
-                Height = node.CssSelect(".height [itemprop='height']")
-                    .FirstOrDefault()
-                    ?.InnerText,
-                HeightMetric = node.CssSelect(".height")
-                    .FirstOrDefault()
-                    ?.LastChild
-                    .InnerText
-                    .Trim(),
-                Weight = node.CssSelect(".weight [itemprop='weight']")
-                    .FirstOrDefault()
-                    ?.InnerText,
-                WeightMetric = node.CssSelect(".weight")
-                    .FirstOrDefault()
-                    ?.LastChild
-                    .InnerText
-                    .Trim(),
-                Association = node.CssSelect(".association span")
-                    .FirstOrDefault()
-                    ?.InnerText,
-                WeightClass = node.CssSelect(".wclass .title")
-                    .FirstOrDefault()
-                    ?.InnerText,
-                Losses = node.CssSelect(".loser")
-                    .Select(ParseScoreDetails)
-                    .FirstOrDefault(),
-                Wins = node.CssSelect(".bio_graph")
-                    .Select(ParseScoreDetails)
-                    .FirstOrDefault(),
-            };
+            var result = new Fighter();
+
+            result.ImageSrc = node.CssSelect(".bio_fighter img.profile-image")
+                .FirstOrDefault()
+                ?.Attributes["src"]
+                .Value;
+            result.BirthDate = node.CssSelect("[itemprop='birthDate']")
+                .FirstOrDefault()
+                ?.InnerText;
+            result.Birthplace = node.CssSelect("[itemprop='addressLocality']")
+                .Select(ParseBirthplace)
+                .FirstOrDefault();
+            result.Height = node.CssSelect("[itemprop='height']")
+                .FirstOrDefault()
+                ?.InnerText;
+            result.Weight = node.CssSelect("[itemprop='weight']")
+                .FirstOrDefault()
+                ?.InnerText;
+            result.Association = node.CssSelect("[itemprop='memberOf'] .association span")
+                .FirstOrDefault()
+                ?.InnerText;
+            result.WeightClass = node.CssSelect(".association-class a")
+                .LastOrDefault()
+                ?.InnerText;
+            result.Losses = int.Parse(node.CssSelect(".winloses.lose span")
+                .LastOrDefault()
+                ?.InnerText);
+            result.Wins = int.Parse(node.CssSelect(".winloses.win span")
+                .LastOrDefault()
+                ?.InnerText);
+
             return result;
         }
 
