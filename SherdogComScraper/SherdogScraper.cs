@@ -37,10 +37,11 @@ namespace SherdogComScraper
 
         public List<SherdogEvent> Scrape()
         {
-            WebPage homePage = _browser.NavigateToPage(
-                new Uri(
+            var uri = new Uri(
                 Consts.SherdogComUrlBase +//right now I'm testing only on UFC
-                "organizations/Ultimate-Fighting-Championship-UFC-2"));
+                "organizations/Ultimate-Fighting-Championship-UFC-2");
+            WebPage homePage = _browser.NavigateToPage(
+               uri);
             var events = homePage.Html.CssSelect(".event a")
                 .Select(x => ScrapeEvent(x.Attributes["href"].Value))
                 .ToList();
@@ -70,10 +71,9 @@ namespace SherdogComScraper
                 && heads.CssSelect(".col_four").Any()
                 && heads.CssSelect(".col_five").Any();
 
-
             var fights = eventPage
                 .Html
-                .CssSelect(".event_match tr")
+                .CssSelect("tr[itemprop='subEvent']")
                 .Select(x => ParseFight(x, parseScore))
                 .ToList();
 
@@ -137,24 +137,23 @@ namespace SherdogComScraper
                 cells.Reverse();
             }
 
-            var result = new EventFight()
-            {
-                Name = fight.CssSelect("[itemprop='name']")
+            var result = new EventFight();
+            result.Name = fight.CssSelect("[itemprop='name']")
+                .FirstOrDefault()
+                ?.Attributes["content"]
+                .Value;
+            result.Image = fight.CssSelect("[itemprop='image']")
                     .FirstOrDefault()
                     ?.Attributes["content"]
-                    .Value,
-                Image = fight.CssSelect("[itemprop='image']")
-                    .FirstOrDefault()
-                    ?.Attributes["content"]
-                    .Value,
-                Performers = fight.CssSelect("[itemprop='performer']")
+                    .Value;
+            result.Performers = fight.CssSelect("[itemprop='performer']")
                     .Select(x => ParsePerformer(x))
-                    .ToList(),
-                Time = cells?[0].InnerText,
-                Round = cells?[1].InnerText,
-                Method = cells?[2].FirstChild.InnerText,
-                Referee = cells?[2].LastChild.InnerText
-            };
+                    .ToList();
+            result.Time = cells?[0].InnerText;
+            result.Round = cells?[1].InnerText;
+                result.Method = cells?[2].FirstChild.InnerText;
+                result.Referee = cells?[2].LastChild.InnerText;
+            
             return result;
         }
 
@@ -170,7 +169,8 @@ namespace SherdogComScraper
             {
                 Name = url
                     ?.FirstChild
-                    .InnerHtml,
+                    .InnerHtml
+                    .Replace("<br>"," "),
                 Href = url
                     ?.Attributes["href"]
                     .Value,
