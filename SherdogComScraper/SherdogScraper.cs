@@ -151,9 +151,9 @@ namespace SherdogComScraper
                     .ToList();
             result.Time = cells?[0].InnerText;
             result.Round = cells?[1].InnerText;
-                result.Method = cells?[2].FirstChild.InnerText;
-                result.Referee = cells?[2].LastChild.InnerText;
-            
+            result.Method = cells?[2].FirstChild.InnerText;
+            result.Referee = cells?[2].LastChild.InnerText;
+
             return result;
         }
 
@@ -170,7 +170,7 @@ namespace SherdogComScraper
                 Name = url
                     ?.FirstChild
                     .InnerHtml
-                    .Replace("<br>"," "),
+                    .Replace("<br>", " "),
                 Href = url
                     ?.Attributes["href"]
                     .Value,
@@ -240,7 +240,7 @@ namespace SherdogComScraper
             result.BirthDate = node.CssSelect("[itemprop='birthDate']")
                 .FirstOrDefault()
                 ?.InnerText;
-            result.Birthplace = node.CssSelect("[itemprop='addressLocality']")
+            result.Birthplace = node.CssSelect(".fighter-nationality")
                 .Select(ParseBirthplace)
                 .FirstOrDefault();
             result.Height = node.CssSelect("[itemprop='height']")

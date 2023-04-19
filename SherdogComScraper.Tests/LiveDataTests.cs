@@ -29,6 +29,9 @@ namespace SherdogComScraper.Tests
             Assert.IsNotNull(gamrot.Association);
             Assert.IsNotNull(gamrot.BirthDate);
             Assert.IsNotNull(gamrot.Birthplace);
+            Assert.IsNotNull(gamrot.Birthplace.Flag);
+            Assert.IsNotNull(gamrot.Birthplace.Nationality);
+            Assert.IsNotNull(gamrot.Birthplace.Locality);
             Assert.IsNotNull(gamrot.ImageSrc);
             Assert.IsNotNull(gamrot.Weight);
             Assert.IsNotNull(gamrot.WeightClass);

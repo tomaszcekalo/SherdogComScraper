@@ -12,8 +12,5 @@
         public int Wins { get; set; }
         public int Losses { get; set; }
         public int NoContest { get; set; }
-        //public string Wins { get; set; }
-        //public string Losses { get; set; }
-        //public string Draws { get; set; }
     }
 }
