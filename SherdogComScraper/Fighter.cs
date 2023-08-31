@@ -12,5 +12,6 @@
         public int Wins { get; set; }
         public int Losses { get; set; }
         public int NoContest { get; set; }
+        public string Url { get; set; }
     }
 }

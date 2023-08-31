@@ -9,6 +9,7 @@ namespace SherdogComScraper
         public string OrganizationName { get; set; }
         public string StartDate { get; set; }
         public string Location { get; set; }
+        public string Url { get;  set; }
         internal List<EventFight> Fights { get; set; }
     }
 }

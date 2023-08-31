@@ -51,9 +51,10 @@ namespace SherdogComScraper
 
         public SherdogEvent ScrapeEvent(string url)
         {
-            WebPage eventPage = _browser.NavigateToPage(
-                new Uri(
-                Consts.SherdogComUrlBase + url));
+            var uri = new Uri(Consts.SherdogComUrlBase + url);
+            WebPage eventPage = _browser.NavigateToPage(uri);
+            var result = new SherdogEvent();
+            result.Url = uri.AbsoluteUri;
 
             var sectionTitle = eventPage.Html;
             var eventName = sectionTitle
@@ -79,7 +80,6 @@ namespace SherdogComScraper
 
             fights.Insert(0, mainEventFight);
 
-            var result = new SherdogEvent();
             result.Headline = eventName?.ChildNodes.FirstOrDefault()?.InnerHtml;
             result.Fights = fights;
             result.OrganizationHref = organization
@@ -224,9 +224,12 @@ namespace SherdogComScraper
 
         public Fighter ScrapeFigher(string url)
         {
+            var uri = new Uri(url);
             WebPage eventPage = _browser.NavigateToPage(
-                new Uri(url));
-            return ParseFighter(eventPage.Html);
+                uri);
+            var fighter = ParseFighter(eventPage.Html);
+            fighter.Url = uri.AbsoluteUri;
+            return fighter;
         }
 
         public Fighter ParseFighter(HtmlNode node)
