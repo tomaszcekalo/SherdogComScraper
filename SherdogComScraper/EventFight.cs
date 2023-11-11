@@ -2,7 +2,7 @@
 
 namespace SherdogComScraper
 {
-    internal class EventFight
+    public class EventFight
     {
         public List<Performer> Performers { get; set; }
         public string Name { get; set; }

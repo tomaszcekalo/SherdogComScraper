@@ -1,175 +1,134 @@
-﻿using HtmlAgilityPack;
-using ScrapySharp.Extensions;
-using ScrapySharp.Network;
+﻿using AngleSharp;
+using AngleSharp.Dom;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace SherdogComScraper
 {
-    public interface ISherdogScraper
-    {
-        List<SherdogEvent> Scrape();
-
-        SherdogEvent ScrapeEvent(string url);
-
-        Performer ParsePerformer(HtmlNode performer);
-
-        Performer ParseMainEventPerformer(HtmlNode fighter);
-
-        Fighter ParseFighter(HtmlNode node);
-    }
-
     public class SherdogScraper : ISherdogScraper
     {
-        private readonly ScrapingBrowser _browser;
-        private char[] _percent = new char[] { '%' };
+        private IConfiguration config;
+        private IBrowsingContext context;
 
         public SherdogScraper()
         {
-            _browser = new ScrapingBrowser();
+            config = Configuration.Default.WithDefaultLoader();
+            context = BrowsingContext.New(config);
         }
 
-        public SherdogScraper(ScrapingBrowser browser)
+        public async Task<IEnumerable<SherdogEvent>> Scrape()
         {
-            _browser = browser;
+            var url = Consts.SherdogComUrlBase +//right now I'm testing only on UFC
+                "organizations/Ultimate-Fighting-Championship-UFC-2";
+            var document = await context.OpenAsync(url);
+            var tasks = document.QuerySelectorAll(".event a")
+                .Select(x => ScrapeEvent(x.Attributes["href"].Value));
+            var result = await Task.WhenAll(tasks);
+            return result;
         }
 
-        public List<SherdogEvent> Scrape()
-        {
-            var uri = new Uri(
-                Consts.SherdogComUrlBase +//right now I'm testing only on UFC
-                "organizations/Ultimate-Fighting-Championship-UFC-2");
-            WebPage homePage = _browser.NavigateToPage(
-               uri);
-            var events = homePage.Html.CssSelect(".event a")
-                .Select(x => ScrapeEvent(x.Attributes["href"].Value))
-                .ToList();
-
-            return events;
-        }
-
-        public SherdogEvent ScrapeEvent(string url)
+        public async Task<SherdogEvent> ScrapeEvent(string url)
         {
             var uri = new Uri(Consts.SherdogComUrlBase + url);
-            WebPage eventPage = _browser.NavigateToPage(uri);
+            var document = await context.OpenAsync(uri.AbsoluteUri);
             var result = new SherdogEvent();
             result.Url = uri.AbsoluteUri;
 
-            var sectionTitle = eventPage.Html;
-            var eventName = sectionTitle
-                .CssSelect("h1 span")
-                .FirstOrDefault();
-            var organization = sectionTitle
-                .CssSelect(".organization")
-                .FirstOrDefault();
-            var mainEvent = eventPage.Html
-                .CssSelect(".fight_card")
-                .FirstOrDefault();
+            var eventName = document
+                .QuerySelector("h1 span");
+            var organization = document
+                .QuerySelector("[itemtype=\"http://schema.org/Organization\"]");
+            var mainEvent = document
+                .QuerySelector(".fight_card");
             var mainEventFight = ParseMainEvent(mainEvent);
-            var heads = eventPage.Html.CssSelect(".event_match .table_head");
-            var parseScore = heads.CssSelect(".col_three").Any()
-                && heads.CssSelect(".col_four").Any()
-                && heads.CssSelect(".col_five").Any();
+            var heads = document.QuerySelectorAll(".event_match .table_head");
+            var parseScore = heads.SelectMany(x => x.QuerySelectorAll(".col_three")).Any()
+                && heads.SelectMany(x => x.QuerySelectorAll(".col_four")).Any()
+                && heads.SelectMany(x => x.QuerySelectorAll(".col_five")).Any();
 
-            var fights = eventPage
-                .Html
-                .CssSelect("tr[itemprop='subEvent']")
+            var fights = document
+                .QuerySelectorAll("tr[itemprop='subEvent']")
                 .Select(x => ParseFight(x, parseScore))
                 .ToList();
 
             fights.Insert(0, mainEventFight);
 
-            result.Headline = eventName?.ChildNodes.FirstOrDefault()?.InnerHtml;
+            result.Headline = eventName?.ChildNodes.FirstOrDefault()?.TextContent;
             result.Fights = fights;
-            result.OrganizationHref = organization
-                ?.CssSelect("a")
-                .FirstOrDefault()
-                ?.Attributes["href"]
-                .Value;
+            //result.OrganizationHref = organization
+            //    ?.QuerySelector("a")
+            //    ?.Attributes["href"]
+            //    .Value;
             result.OrganizationName = organization
-                ?.CssSelect("[itemprop='name']")
-                .FirstOrDefault()
-                ?.InnerText;
-            result.StartDate = eventPage.Html
-                .CssSelect("[itemprop='startDate']")
-                .FirstOrDefault()
+                ?.QuerySelector("[itemprop='name']")
+                ?.TextContent;
+            result.StartDate = document
+                .QuerySelector("[itemprop='startDate']")
                 ?.Attributes["content"]
                 ?.Value;
-            result.Location = eventPage.Html
-                .CssSelect("[itemprop='location']")
-                .FirstOrDefault()
-                ?.InnerText;
+            result.Location = document
+                .QuerySelector("[itemprop='location']")
+                ?.TextContent;
+            if (result.Location is null)
+            {
+                ;
+            }
+            if (result.OrganizationName is null)
+            {
+                ;
+            }
+            if (result.StartDate is null)
+            {
+                ;
+            }
 
             return result;
         }
 
-        private EventFight ParseMainEvent(HtmlNode mainEvent)
+        private EventFight ParseFight(IElement fight, bool parseScore)
         {
-            var resume = mainEvent?
-                .ParentNode
-                .CssSelect(".footer")
-                .CssSelect(".resume")
-                .FirstOrDefault()
-                ?.CssSelect("td")
-                .ToDictionary(x => x.FirstChild.InnerText, x => x.LastChild.InnerText);
-
-            var result = new EventFight()
+            List<IElement> cells = null;
+            if (parseScore)
             {
-                Performers = mainEvent?.CssSelect(".fighter")
-                    .Select(x => ParseMainEventPerformer(x))
-                    .ToList(),
-                Method = resume?["Method"],
-                Round = resume?["Round"],
-                Time = resume?["Time"],
-                Referee = resume?["Referee"]
-            };
-            return result;
-        }
-
-        private EventFight ParseFight(HtmlNode fight, bool parseScrore)
-        {
-            List<HtmlNode> cells = null;
-            if (parseScrore)
-            {
-                cells = fight.CssSelect("td")
+                cells = fight.QuerySelectorAll("td")
                     .ToList();
                 cells.Reverse();
             }
 
             var result = new EventFight();
-            result.Name = fight.CssSelect("[itemprop='name']")
-                .FirstOrDefault()
+            result.Name = fight.QuerySelector("[itemprop='name']")
                 ?.Attributes["content"]
                 .Value;
-            result.Image = fight.CssSelect("[itemprop='image']")
-                    .FirstOrDefault()
+            result.Image = fight.QuerySelector("[itemprop='image']")
                     ?.Attributes["content"]
                     .Value;
-            result.Performers = fight.CssSelect("[itemprop='performer']")
+            result.Performers = fight.QuerySelectorAll("[itemprop='performer']")
                     .Select(x => ParsePerformer(x))
                     .ToList();
-            result.Time = cells?[0].InnerText;
-            result.Round = cells?[1].InnerText;
-            result.Method = cells?[2].FirstChild.InnerText;
-            result.Referee = cells?[2].LastChild.InnerText;
+            result.Time = cells?[0].TextContent;
+            result.Round = cells?[1].TextContent;
+            result.Method = cells?[2].FirstChild.TextContent;
+            result.Referee = cells?[2].LastChild.TextContent;
 
             return result;
         }
 
-        public Performer ParsePerformer(HtmlNode performer)
+        private Performer ParsePerformer(IElement performer)
         {
-            var image = performer.CssSelect("img")
-                .FirstOrDefault();
+            var image = performer.QuerySelector("img");
             var url = performer
-                .CssSelect("a")
-                .FirstOrDefault();
+                .QuerySelector("a");
 
             var result = new Performer()
             {
                 Name = url
                     ?.FirstChild
-                    .InnerHtml
+                    .TextContent
                     .Replace("<br>", " "),
                 Href = url
                     ?.Attributes["href"]
@@ -181,30 +140,45 @@ namespace SherdogComScraper
                     .Attributes["title"]
                     .Value,
                 Record = performer
-                    .CssSelect(".record em")
-                    .FirstOrDefault()
-                    ?.InnerHtml,
+                    .QuerySelector(".record em")
+                    ?.TextContent,
                 FinalResult = performer
-                    .CssSelect(".final_result")
-                    .FirstOrDefault()
-                    ?.InnerText
+                    .QuerySelector(".final_result")
+                    ?.TextContent
             };
             return result;
         }
 
-        public Performer ParseMainEventPerformer(HtmlNode performer)
+        private EventFight ParseMainEvent(IElement mainEvent)
         {
-            var link = performer.CssSelect("h3 a")
-                .FirstOrDefault();
-            var image = performer.CssSelect("img")
-                    .FirstOrDefault();
+            var resume = mainEvent
+                ?.ParentElement.QuerySelector(".fight_card_resume")
+                ?.QuerySelectorAll("td")
+                .ToDictionary(x => x.FirstElementChild?.TextContent, x => x.LastElementChild?.TextContent);
+
+            var result = new EventFight()
+            {
+                Performers = mainEvent?.QuerySelectorAll(".fighter")
+                    .Select(x => ParseMainEventPerformer(x))
+                    .ToList(),
+                Method = resume?["Method"],
+                Round = resume?["Round"],
+                Time = resume?["Time"],
+                Referee = resume?["Referee"]
+            };
+            return result;
+        }
+
+        private Performer ParseMainEventPerformer(IElement performer)
+        {
+            var link = performer.QuerySelector("h3 a");
+            var image = performer.QuerySelector("img");
 
             var result = new Performer()
             {
-                Record = performer.CssSelect(".record")
-                    .FirstOrDefault()
+                Record = performer.QuerySelector(".record")
                     ?.FirstChild
-                    .InnerHtml,
+                    .TextContent,
                 ImageSrc = image
                     ?.Attributes["src"]
                     .Value,
@@ -212,98 +186,68 @@ namespace SherdogComScraper
                     ?.Attributes["title"]
                     .Value,
                 Href = link?.Attributes["href"].Value,
-                Name = link?.FirstChild.InnerHtml,
+                Name = link?.FirstChild.TextContent,
                 FinalResult = performer
-                    .CssSelect(".final_result")
-                    .FirstOrDefault()
-                    ?.InnerText
+                    .QuerySelector(".final_result")
+                    ?.TextContent
             };
 
             return result;
         }
 
-        public Fighter ScrapeFigher(string url)
+        public async Task<Fighter> ScrapeFigher(string url)
         {
             var uri = new Uri(url);
-            WebPage eventPage = _browser.NavigateToPage(
-                uri);
-            var fighter = ParseFighter(eventPage.Html);
+            var document = await context.OpenAsync(url);
+
+            var fighter = ParseFighter(document);
             fighter.Url = uri.AbsoluteUri;
             return fighter;
         }
 
-        public Fighter ParseFighter(HtmlNode node)
+        private Fighter ParseFighter(IDocument node)
         {
             var result = new Fighter();
 
-            result.ImageSrc = node.CssSelect(".bio_fighter img.profile-image")
-                .FirstOrDefault()
+            result.ImageSrc = node.QuerySelector(".bio_fighter img.profile-image")
                 ?.Attributes["src"]
                 .Value;
-            result.BirthDate = node.CssSelect("[itemprop='birthDate']")
-                .FirstOrDefault()
-                ?.InnerText;
-            result.Birthplace = node.CssSelect(".fighter-nationality")
+            result.BirthDate = node.QuerySelector("[itemprop='birthDate']")
+                ?.TextContent;
+            result.Birthplace = node.QuerySelectorAll(".fighter-nationality")
                 .Select(ParseBirthplace)
                 .FirstOrDefault();
-            result.Height = node.CssSelect("[itemprop='height']")
-                .FirstOrDefault()
-                ?.InnerText;
-            result.Weight = node.CssSelect("[itemprop='weight']")
-                .FirstOrDefault()
-                ?.InnerText;
-            result.Association = node.CssSelect("[itemprop='memberOf'] .association span")
-                .FirstOrDefault()
-                ?.InnerText;
-            result.WeightClass = node.CssSelect(".association-class a")
+            result.Height = node.QuerySelector("[itemprop='height']")
+                ?.TextContent;
+            result.Weight = node.QuerySelector("[itemprop='weight']")
+                ?.TextContent;
+            result.Association = node.QuerySelector("[itemprop='memberOf'] .association span")
+                ?.TextContent;
+            result.WeightClass = node.QuerySelector(".association-class a")
+                ?.TextContent;
+            result.Losses = int.Parse(
+                node.QuerySelectorAll(".winloses.lose span")
                 .LastOrDefault()
-                ?.InnerText;
-            result.Losses = int.Parse(node.CssSelect(".winloses.lose span")
+                .TextContent);
+            result.Wins = int.Parse(node.QuerySelectorAll(".winloses.win span")
                 .LastOrDefault()
-                ?.InnerText);
-            result.Wins = int.Parse(node.CssSelect(".winloses.win span")
-                .LastOrDefault()
-                ?.InnerText);
+                ?.TextContent);
 
             return result;
         }
 
-        public Birthplace ParseBirthplace(HtmlNode node)
+        public Birthplace ParseBirthplace(IElement node)
         {
             var result = new Birthplace
             {
-                Flag = node.CssSelect("img.big_flag")
-                    .FirstOrDefault()
+                Flag = node.QuerySelector("img.big_flag")
                     ?.Attributes["src"]
                     .Value,
-                Locality = node.CssSelect(".locality")
-                    .FirstOrDefault()
-                    ?.InnerText,
-                Nationality = node.CssSelect("[itemprop='nationality']")
-                    .FirstOrDefault()
-                    ?.InnerText
+                Locality = node.QuerySelector(".locality")
+                    ?.TextContent,
+                Nationality = node.QuerySelector("[itemprop='nationality']")
+                    ?.TextContent
             };
-            return result;
-        }
-
-        public ScoreDetails ParseScoreDetails(HtmlNode node)
-        {
-            var result = new ScoreDetails();
-            result.Total = int.Parse(
-                node.CssSelect(".counter")
-                    .FirstOrDefault()
-                    ?.InnerText);
-            result.Values = node.CssSelect(".graph_tag")
-                .Select(x =>
-                    (
-                        x.InnerText,
-                        int.Parse(
-                            x.CssSelect("em")
-                                .FirstOrDefault()
-                                ?.InnerText
-                                .TrimEnd(_percent))
-                    )).ToList();
-
             return result;
         }
     }
